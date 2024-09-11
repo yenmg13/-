@@ -1,0 +1,182 @@
+---
+title: "讀書會"
+date: "2024-09-09"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+
+### 台灣加權指數走勢圖
+```{r,warning=FALSE, message=FALSE}
+library(quantmod)
+library(quantmod)
+library(vrtest)
+library(tseries)
+library(timeSeries) 
+
+# 載入套件
+TWII = getSymbols("^TWII", src = "yahoo", from = "2019-01-01", to = "2024-4-30", auto.assign = FALSE)
+TWII = TWII$TWII.Adjusted
+TWII = as.timeSeries(TWII)
+plot(TWII, type = "l", main = "TAIEX ")
+
+```
+
+
+```{r,warning=FALSE, message=FALSE}
+
+TWII = getSymbols("^TWII", src = "yahoo", from = "2022-01-01", to = "2024-4-30", auto.assign = FALSE)
+TWII = TWII$TWII.Adjusted
+TWII = as.timeSeries(TWII)
+plot(TWII, type = "l", main = "TAIEX ")
+```
+
+### 台灣加權指數報酬率走勢圖
+```{r,warning=FALSE, message=FALSE}
+TWII_r=log(TWII/lag(TWII),base = exp(1))
+TWII_r=na.omit(TWII_r)
+# 繪製時間序列圖
+TWII_r = as.timeSeries(TWII_r)
+plot(TWII_r, type = "l", main = "TAIEX Return",ylab = "TAIEX Return")
+```
+
+由上圖可以大概看出報酬率維持在某一個常數上下波動，數據可能爲定態。
+
+```{r,warning=FALSE, message=FALSE}
+boxplot(TWII_r, horizontal = TRUE,main = "Boxplot of TWII_r")
+
+hist(TWII_r, main = "Histogram of TWII_r", xlab = "Value")
+
+qqnorm(TWII_r)
+qqline(TWII_r)
+
+```
+
+由上面盒形圖可以看出台灣加權指數報酬率有離群值，資料微集中在右邊，具有左長尾，因此判定為資料左偏；由上面直方圖可以看出數據呈現鐘形，但有點偏離中心；由上面Q-Q圖可以看出中間資料幾乎在線上，左右兩邊的資料在線附近。綜合上述，我們判斷台灣加權指數報酬率近似常態為近似常態。
+
+
+```{r,warning=FALSE, message=FALSE}
+acf(TWII_r, main = "ACF of Taiwan Index Returns", lag = 12) 
+pacf(TWII_r, main = "PACF of Taiwan Index Returns", lag = 12) 
+```
+
+從上面兩張圖可以看出ACF值和PACF值只有在落後第7期時超過信賴區間一點點，大部分在信賴區間內，呈現收斂，數據可能為定態。而從圖中可以看到ACF值和PACF值雖然從落後7期這個時點前後都在信賴區間內，因此判斷要使用ARMA或ARIMA模型。   
+
+### Zivot and Andrews 結構轉變考量的單根檢定方法
+在實際代入模型前，我們要先確認在某個時間點是否發生結構性轉變，若發生結構性轉變則要使用不同模型。我們以ZA檢定檢測資料是否有結構性變動。
+
+```{r,warning=FALSE, message=FALSE}
+library(urca)
+y.ZA <- ur.za(TWII_r, model = c("both"), lag = NULL)
+summary(y.ZA)
+par(mfcol = c(1,1))
+plot(y.ZA)
+
+```
+
+從上面呈現結果可以看出p-value=0.001741小於0.05，拒絕虛無假設，因此ZA單根檢定認為資料不具有單根且有結構性轉變，該轉變點可能在第552筆，意即結構性轉變點可能發生在2024年的四月份，代表資料在2024年的四月份後，應該有顯著結構性變動。
+
+從上圖中可以看出T統計量都超過信賴區間，所以他就從中找出最⼩的值，代表從第552筆這筆資料開始可能會有結構性轉變，因為第552筆資料已經是資料的尾端，所以我們將它以後的值都刪除，使用前面的資料。
+
+```{r,warning=FALSE, message=FALSE}
+library(quantmod)
+library(quantmod)
+library(vrtest)
+library(tseries)
+library(timeSeries) 
+
+TWII = getSymbols("^TWII", src = "yahoo", from = "2022-01-01", to = "2024-04-15", auto.assign = FALSE)
+TWII = TWII$TWII.Adjusted
+TWII_r=log(TWII/lag(TWII),base = exp(1))
+TWII_r=na.omit(TWII_r)
+
+TWII_r = as.timeSeries(TWII_r)
+plot(TWII_r, type = "l", main = "Exchange Rate Time Series")
+```
+
+從這張圖可以看出大波動跟隨大波動，小波動跟隨小波動，可能有ARCH現象。雖然從上圖以及前面ZA檢定可以看出報酬率爲定態資料，但我們還是將刪除資料後的報酬率做ADF單根檢定，雙重確認。
+
+
+
+### ADF 檢定
+
+```{r,warning=FALSE, message=FALSE}
+library(urca)
+DF.y <- ur.df(TWII_r, lags = 12, type = c("trend"),selectlags = "BIC")
+summary(DF.y)
+
+adf.test(TWII_r,k=12)
+```
+
+從上面呈現結果可以看出p-value=2.2e-16小於0.05，拒絕虛無假設，資料不具有單根，為定態資料。
+
+```{r,warning=FALSE, message=FALSE}
+library(forecast)
+fit_aic <- auto.arima(TWII_r, ic="aic", stepwise = T)
+summary(fit_aic)
+fit_bic <- auto.arima(TWII_r, ic="bic", stepwise = T)
+summary(fit_bic)
+```
+
+我們選擇ARIMA(0,1,1)模型，將報酬率差分後就是MA(1)模型。
+
+### 獨立性-Ljung-Box檢定
+
+```{r,warning=FALSE, message=FALSE}
+library(zoo)
+library(FinTS)
+library(lmtest)
+
+
+fit.ar1 = arima(TWII_r, order = c(0,0,0))
+#library(FinTS)
+Box.test(fit.ar1$resid, lag = 12, type = "Ljung-Box") 
+Box.test(fit.ar1$resid^2, lag = 12, type = "Ljung-Box")  
+
+```
+
+從上述呈現結果可以看出代入模型為殘差時，p-value=0.3346大於0.05，接受虛無假設，殘差無一階序列自我相關；代入模型為殘差平方時，p-value=2.593e-10，拒絕虛無假設，殘差有二階序列自我相關，獨立性不通過。
+
+### 變異數同質性：ARCH's LM 檢定
+
+```{r,warning=FALSE, message=FALSE}
+ArchTest(fit.ar1$resid)
+ArchTest(TWII_r)
+
+``` 
+
+從上面呈現結果可以看出p-value都小於0.05，拒絕虛無假設 ，有arch效果，變異數同質性不符合，因此據續使用GARCH模型。
+
+### 指數 GARCH：EGARCH model
+
+```{r,warning=FALSE, message=FALSE}
+library(rugarch)
+mean.spec <- list(armaOrder = c(0,1),include.mean = T, archm = F, archpow = 1, arfima = T, external.regressors = NULL)     #arfima: 指允許 fractional 差分，非整數差分
+
+var.spec <- list(model = "eGARCH", garchOrder = c(1,1), submodel = NULL, external.regressors = NULL,variance.targeting = FALSE)    #s是對稱
+
+dist.spec <- c("norm")   # sstd: skewed student t dis.
+
+myspec <- ugarchspec(mean.model = mean.spec, variance.model = var.spec, distribution.model = dist.spec)
+
+z <- ugarchfit(spec = myspec, data = TWII_r, solver.control = list(trace = 0))
+
+myspec_filter <- ugarchspec(mean.model = mean.spec, variance.model = var.spec, distribution.model=dist.spec,fixed.pars = as.list(coef(z)))
+
+ugarchfilter(spec = myspec_filter, data=TWII_r)
+
+
+fit <- ugarchfit(myspec, data = TWII_r, out.sample = 20)
+
+
+```
+
+從上述呈現結果可以看出Weighted Ljung-Box Test on Standardized Residuals和 Weighted Ljung-Box Test on Standardized Squared Residuals的p-value都大於0.05，因此無法拒絕虛無假設，沒有自我相關，符合獨立性
+Weighted ARCH LM Tests的p-value都大於0.05，因此無法拒絕虛無假設，沒有ARCH效果，符合變異數同質性；
+Sign Bias Test在正面衝擊和負面衝擊都沒有特別顯著，呈現平衡狀態；Adjusted Pearson Goodness-of-Fit Test接受虛無假設，殘差服從常態分配。綜合上述，殘差符合三大假設，可以將模型代入預測。
