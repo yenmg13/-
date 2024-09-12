@@ -41,7 +41,6 @@ plot(TWII, type = "l", main = "TAIEX ")
 ```{r,warning=FALSE, message=FALSE}
 TWII_r=log(TWII/lag(TWII),base = exp(1))
 TWII_r=na.omit(TWII_r)
-# 繪製時間序列圖
 TWII_r = as.timeSeries(TWII_r)
 plot(TWII_r, type = "l", main = "TAIEX Return",ylab = "TAIEX Return")
 ```
@@ -101,8 +100,6 @@ plot(TWII_r, type = "l", main = "Exchange Rate Time Series")
 ```
 
 從這張圖可以看出大波動跟隨大波動，小波動跟隨小波動，可能有ARCH現象。雖然從上圖以及前面ZA檢定可以看出報酬率爲定態資料，但我們還是將刪除資料後的報酬率做ADF單根檢定，雙重確認。
-
-
 
 ### ADF 檢定
 
