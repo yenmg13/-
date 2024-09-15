@@ -177,3 +177,15 @@ fit <- ugarchfit(myspec, data = TWII_r, out.sample = 20)
 從上述呈現結果可以看出Weighted Ljung-Box Test on Standardized Residuals和 Weighted Ljung-Box Test on Standardized Squared Residuals的p-value都大於0.05，因此無法拒絕虛無假設，沒有自我相關，符合獨立性
 Weighted ARCH LM Tests的p-value都大於0.05，因此無法拒絕虛無假設，沒有ARCH效果，符合變異數同質性；
 Sign Bias Test在正面衝擊和負面衝擊都沒有特別顯著，呈現平衡狀態；Adjusted Pearson Goodness-of-Fit Test接受虛無假設，殘差服從常態分配。綜合上述，殘差符合三大假設，可以將模型代入預測。
+
+### 預測
+```{r, warning = FALSE, message = FALSE}
+forc = ugarchforecast(fit, n.ahead = 10, n.roll = 10)
+forc
+head(sigma(forc))
+head(fitted(forc))
+par(mfrow = c(1,1), ps = 14, mar=c(2,2,2,2))
+plot(forc, which = "all")
+```
+
+從右上角條件預期報酬率的圖可以看出實際資料超過信賴區間且實際資料很有起伏但是預測卻很平，報酬率預測得不好；右下角條件預期波動度的圖可以看出實際波動率和預測波動率幾乎完全吻合，波動度預測得不錯。
