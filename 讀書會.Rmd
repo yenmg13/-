@@ -131,7 +131,7 @@ library(FinTS)
 library(lmtest)
 
 
-fit.ar1 = arima(TWII_r, order = c(0,0,0))
+fit.ar1 = arima(TWII_r, order = c(0,1,1))
 #library(FinTS)
 Box.test(fit.ar1$resid, lag = 12, type = "Ljung-Box") 
 Box.test(fit.ar1$resid^2, lag = 12, type = "Ljung-Box")  
